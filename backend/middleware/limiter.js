@@ -1,34 +1,28 @@
 const pool = require('../db');
 
-const LIMITE_FREE = 5;
+// Blueprint Fluxio V1.1 §9
+// Le Starter est réellement utilisable.
+// Aucune frustration artificielle.
+// Le cœur du produit n'est JAMAIS bloqué.
+// Premium = gain de temps + stats avancées.
 
-const checkFreemiumLimit = async (req, res, next) => {
+// Pour fonctionnalités Premium uniquement
+const requirePremium = async (req, res, next) => {
   if (!req.merchantId) return next();
-
   const { rows } = await pool.query(
-    `SELECT plan FROM merchants WHERE id=$1`,
-    [req.merchantId]
+    `SELECT plan FROM merchants WHERE id=$1`, [req.merchantId]
   );
-
-  if (!rows.length) return next();
-  if (rows[0].plan === 'premium') return next();
-
-  const count = await pool.query(
-    `SELECT COUNT(*) FROM creances
-     WHERE merchant_id=$1 AND statut='actif'`,
-    [req.merchantId]
-  );
-
-  if (parseInt(count.rows[0].count) >= LIMITE_FREE) {
+  if (!rows.length || rows[0].plan !== 'premium') {
     return res.status(403).json({
-      error:       'LIMIT_REACHED',
-      message:     `Limite de ${LIMITE_FREE} créances actives atteinte`,
+      error:       'PREMIUM_REQUIRED',
+      message:     'Cette fonctionnalité est réservée aux abonnés Premium.',
       upgrade_url: '/abonnement',
-      limite:      LIMITE_FREE,
     });
   }
-
   next();
 };
 
-module.exports = { checkFreemiumLimit };
+// Starter = créances illimitées (Blueprint Fluxio V1.1 §9)
+const checkFreemiumLimit = (req, res, next) => next();
+
+module.exports = { checkFreemiumLimit, requirePremium };
