@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+// ── Sentry — init en premier absolu ──────────────
 const Sentry = require('@sentry/node');
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -32,10 +33,13 @@ const { sanitize }            = require('./middleware/ownership');
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
+// ── Sentry request handler ────────────────────────
 if (process.env.SENTRY_DSN) app.use(Sentry.Handlers.requestHandler());
 
+// ── Helmet — headers sécurité ────────────────────
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
+// ── CORS strict ───────────────────────────────────
 const ALLOWED = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',');
 app.use(cors({
   origin: (origin, cb) => {
@@ -51,10 +55,12 @@ app.use(express.json({ limit: '100kb' }));
 app.use(sanitize);
 app.use('/api', limitGlobal);
 
+// ── Health check ─────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', ts: new Date().toISOString() })
 );
 
+// ── Routes ───────────────────────────────────────
 app.use('/api/session',       sessionRoutes);
 app.use('/api/auth',          authRoutes);
 app.use('/api/creances',      creancesRoutes);
@@ -66,10 +72,13 @@ app.use('/api/stats',         statsRoutes);
 app.use('/api/reminders',     remindersRoutes);
 app.use('/api/audit',         auditRoutes);
 
+// ── Sentry error handler ─────────────────────────
 if (process.env.SENTRY_DSN) app.use(Sentry.Handlers.errorHandler());
 
+// ── 404 ──────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: 'Route introuvable' }));
 
+// ── Erreurs globales — stack masqué en prod ───────
 app.use((err, req, res, next) => {
   if (process.env.SENTRY_DSN) Sentry.captureException(err);
   console.error('[ERROR]', err.message);
@@ -80,6 +89,6 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ RecouvPro API → http://localhost:${PORT}`);
+  console.log(`✅ Fluxio API → http://localhost:${PORT}`);
   startReminderWorker();
 });
